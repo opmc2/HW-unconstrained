@@ -28,17 +28,30 @@ module HW_unconstrained
 	# data creator
 	# should/could return a dict with beta,numobs,X,y,norm)
 	# true coeff vector, number of obs, data matrix X, response vector y, and a type of parametric distribution for G.
-	function makeData(n=10000)
-		beta = [ 1; 1.5; -0.5 ]
-
-	end
+	function makeData(n=10000::Int, beta = [ 1; 1.5; -0.5 ]::Vector, k=3::Int)
+        X = rand(MvNormal(eye(k)),n) # define X
+        y = Array{Int}(n) #empty y
+        for i in 1:n # define binomial y
+            y[i] = rand(Bernoulli(cdf(Normal(),dot(X[:,i]',beta))))
+        end
+        # return a dict with beta,numobs,X,y,norm)
+        return Dict("beta" => beta, "numobs" => n, "X" => X, "y" => y, "dist" => Normal())
+    end
 
 
 	# log likelihood function at x
 	# function loglik(betas::Vector,X::Matrix,y::Vector,distrib::UnivariateDistribution) 
-	function loglik(betas::Vector,d::Dict)
-
-	end
+	function loglik(d::Dict)
+        l = 0
+        for i in 1:d["numobs"]
+            if d["y"][i] == 1
+                l = l + log(cdf(d["dist"],dot(d["X"][:,i]',d["beta"])))
+            else
+                l = l + log(1-cdf(d["dist"],dot(d["X"][:,i]',d["beta"])))
+            end
+        end
+        return l
+    end
 
 	# gradient of the likelihood at x
 	function grad!(betas::Vector,storage::Vector,d)
