@@ -41,13 +41,16 @@ module HW_unconstrained
 
 	# log likelihood function at x
 	# function loglik(betas::Vector,X::Matrix,y::Vector,distrib::UnivariateDistribution) 
-	function loglik(d::Dict)
+	function loglik(beta, d::Dict)
         l = 0
         for i in 1:d["numobs"]
             if d["y"][i] == 1
-                l = l + log(cdf(d["dist"],dot(d["X"][:,i]',d["beta"])))
+                l = l + log(cdf(d["dist"],dot(d["X"][:,i]',beta)))
+            elseif d["y"][i] == 0
+                l = l + log(1-cdf(d["dist"],dot(d["X"][:,i]',beta)))
             else
-                l = l + log(1-cdf(d["dist"],dot(d["X"][:,i]',d["beta"])))
+                println("y[$i] was not a zero or a one.")
+                break
             end
         end
         return l
@@ -76,9 +79,12 @@ module HW_unconstrained
 
 	# function that maximizes the log likelihood without the gradient
 	# with a call to `optimize` and returns the result
-	function maximize_like(x0=[0.8,1.0,-0.1],meth=:nelder_mead)
-	end
-
+	function maximize_like(x0=[0.8,1.0,-0.1],meth=NelderMead())
+        d = makeData()
+        l(beta) = -loglik(beta, d)
+        res = optimize(l,x0)
+        return res
+    end
 
 
 	# function that maximizes the log likelihood with the gradient
@@ -101,7 +107,18 @@ module HW_unconstrained
 	# varies one of the parameters, holding the others fixed at the true value
 	# we want to see whether there is a global minimum of the likelihood at the the true value.
 	function plotLike()
-	end
+        d = makeData()
+        l1(x) = loglik([ x, d["beta"][2], d["beta"][3] ], d)
+        l2(x) = loglik([ d["beta"][1], x, d["beta"][3] ], d)
+        l3(x) = loglik([ d["beta"][1], d["beta"][2], x ], d)
+        #x1 = linspace(0, 1, 100)
+        plot1 = plot(linspace(0,2,100), l1, labels = "Varying beta[1]")
+        plot2 = plot(linspace(.5,2.5,100), l2, labels = "Varying beta[2]")
+        plot3 = plot(linspace(-1,0,100), l3, labels = "Varying beta[3]")
+        return plot(plot1, plot2, plot3)
+    end
+
+
 	function plotGrad()
 	end
 
