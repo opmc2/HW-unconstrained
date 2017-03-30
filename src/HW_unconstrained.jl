@@ -3,7 +3,8 @@
 module HW_unconstrained
 
 	# imports: which packages are we going to use in this module?
-	using Distributions, Optim, PyPlot, DataFrames, Debug
+	using Distributions, Optim, Plots, DataFrames
+    pyplot()
 
 	"""
     `input(prompt::AbstractString="")`
@@ -57,12 +58,42 @@ module HW_unconstrained
     end
 
 	# gradient of the likelihood at x
-	function grad!(betas::Vector,storage::Vector,d)
-	end
+	function grad!(beta::Vector, storage::Vector, d::Dict)
+        g = zeros(length(beta))
+        for i in 1:d["numobs"]
+            if d["y"][i] == 1
+                g = g + (pdf(d["dist"],dot(d["X"][:,i]',beta)))/(cdf(d["dist"],dot(d["X"][:,i]',beta)))*d["X"][:,i]
+            else#if d["y"][i] == 0
+                g = g - (pdf(d["dist"],dot(d["X"][:,i]',beta)))/(1-cdf(d["dist"],dot(d["X"][:,i]',beta)))*d["X"][:,i]
+            #else
+             #   println("y[$i] was not a zero or a one.")
+              #  break
+            end
+        end
+        storage[:] = -g
+        #return g
+    end
 
 	# hessian of the likelihood at x
-	function hessian!(betas::Vector,storage::Matrix,d)
-	end
+	function hess!(beta::Vector{Float64},storage::Matrix{Float64}, d)
+        h = zeros(size(storage)) 
+        #Compute the Hessian 
+        for i = 1:d["numobs"]
+            XB = dot(d["X"][:,i]', beta) 
+            phi = pdf(d["dist"], XB) 
+            Phi = cdf(d["dist"], XB) 
+            XXt = d["X"][:,i]*d["X"][:,i]'
+            if d["y"][i] == 1
+                h = h + phi * XXt * (phi + XB * Phi) / (Phi * Phi)
+            else#if d["y"][i] == 0
+                h = h + (phi - XB * (1 - Phi)) / ((1 - Phi) * (1 - Phi))
+            #else
+             #  println("y[$i] was not a zero or a one.")
+              # break
+            end
+        end
+        storage[:] = -h 
+    end
 
 
 	"""
@@ -82,20 +113,32 @@ module HW_unconstrained
 	function maximize_like(x0=[0.8,1.0,-0.1],meth=NelderMead())
         d = makeData()
         l(beta) = -loglik(beta, d)
-        res = optimize(l,x0)
+        res = optimize(l,x0,meth)
         return res
     end
 
 
 	# function that maximizes the log likelihood with the gradient
 	# with a call to `optimize` and returns the result
-	function maximize_like_grad(x0=[0.8,1.0,-0.1],meth=:bfgs)
-	end
+	function maximize_like_grad(x0=[0.8,1.0,-0.1],meth=BFGS())
+        d = makeData()
+        l(beta) = -(loglik(beta, d))
+        g!(beta,storage) = grad!(beta,storage,d)
+        res = optimize(l,g!,x0,meth)
+        return res
+    end
 
-	function maximize_like_grad_hess(x0=[0.8,1.0,-0.1],meth=:newton)
-	end
+	function maximize_like_grad_hess(x0=[0.8,1.0,-0.1],meth=Newton())
+        d = makeData()
+        l(beta) = -(loglik(beta, d))
+        g!(beta,storage) = grad!(beta,storage,d)
+        h!(beta,storage) = hess!(beta,storage,d)
+        res = optimize(l,g!,h!,x0,meth)
+        return res
+    end
 
-	function maximize_like_grad_se(x0=[0.8,1.0,-0.1],meth=:bfgs)
+	function maximize_like_grad_se(x0=[0.8,1.0,-0.1],meth=BFGS())
+        println("Didn't manage to get to this!")
 	end
 
 
@@ -125,7 +168,10 @@ module HW_unconstrained
 
 	function runAll()
 
+        srand(1234)
 		plotLike()
+        l1 = loglik([1,1.5,.5], makeData())
+        g1 = grad!([1,1.5,.5],zeros(3),makeData())
 		m1 = maximize_like()
 		m2 = maximize_like_grad()
 		m3 = maximize_like_grad_hess()

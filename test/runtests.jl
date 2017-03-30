@@ -2,7 +2,7 @@
 
 module maxlikeTest
 
-using Base.Test, Unconstrained, GLM, DataFrames
+using Base.Test
 
 include("tests.jl")
 
